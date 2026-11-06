@@ -1,0 +1,100 @@
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+
+const root = path.join(__dirname, 'public');
+const storagePath = path.join(__dirname, 'data.json');
+const uploadPath = path.join(root, 'uploads');
+fs.mkdirSync(uploadPath,{recursive:true});
+const sessions = new Map();
+const mimeTypes = { '.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp' };
+const seed = [
+  ['Nhà phố vườn An Phú','Nhà riêng','An Phú, TP. Thủ Đức, TP. Hồ Chí Minh',5.8,112,3,3,'photo-1600596542815-ffad4c1539a9'],
+  ['Căn hộ The Grove Residence','Căn hộ','Thảo Điền, TP. Thủ Đức, TP. Hồ Chí Minh',3.2,86,2,2,'photo-1600607687939-ce8a6c25118c'],
+  ['Biệt thự ven sông Bình An','Biệt thự','Bình An, TP. Thủ Đức, TP. Hồ Chí Minh',12.5,260,4,4,'photo-1600585154340-be6161a56a0c'],
+  ['Nhà phố mái ngói thanh bình','Nhà riêng','Thảo Điền, TP. Thủ Đức, TP. Hồ Chí Minh',6.4,140,4,3,'photo-1600566753086-00f18fb6b3ea'],
+  ['Căn hộ ban công đón nắng','Căn hộ','Bình Thạnh, TP. Hồ Chí Minh',2.7,72,2,2,'photo-1600210492486-724fe5c67fb0'],
+  ['Nhà vườn phong cách tối giản','Nhà riêng','Quận 9, TP. Thủ Đức, TP. Hồ Chí Minh',4.5,125,3,2,'photo-1600607687920-4e2a09cf159d'],
+  ['Biệt thự nghỉ dưỡng ven hồ','Biệt thự','Bảo Lộc, Lâm Đồng',8.9,310,4,4,'photo-1600047509807-ba8f99d2cdde'],
+  ['Nhà phố hiện đại Riverside','Nhà riêng','Quận 7, TP. Hồ Chí Minh',7.1,155,4,3,'photo-1600607687644-c7171b42498f'],
+].map((x,i)=>({id:i+1,title:x[0],type:x[1],location:x[2],price:x[3],area:x[4],beds:x[5],baths:x[6],image:x[7],mode:'Mua bán',description:'Không gian sống được chăm chút, pháp lý rõ ràng và sẵn sàng để bạn khám phá. Liên hệ để biết thêm thông tin và đặt lịch xem nhà.',phone:'0900 123 456',ownerId:0,createdAt:Date.now()-i*3600000,status:'Đang hiển thị'}));
+
+function loadDb(){try{const data=JSON.parse(fs.readFileSync(storagePath,'utf8'));data.payments||=[];data.appointments||=[];data.reports||=[];return data;}catch{return {users:[],listings:seed,favorites:{},payments:[],appointments:[],reports:[]};}}
+let db=loadDb();
+function saveDb(){fs.writeFileSync(storagePath,JSON.stringify(db,null,2));}
+if(!fs.existsSync(storagePath))saveDb();
+function send(res,status,data,headers={}){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...headers});res.end(JSON.stringify(data));}
+function readBody(req){return new Promise((resolve,reject)=>{let body='';req.on('data',chunk=>{body+=chunk;if(body.length>8e6){reject(new Error('Tổng dung lượng yêu cầu quá lớn.'));req.destroy();}});req.on('end',()=>{try{resolve(body?JSON.parse(body):{});}catch{reject(new Error('Dữ liệu không hợp lệ'));}});req.on('error',reject);});}
+function userFor(req){const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('an_cu_session='))?.split('=')[1];return sessions.get(token)||null;}
+function safeUser(user){return user?{id:user.id,name:user.name,email:user.email,phone:user.phone,role:user.email===String(process.env.ADMIN_EMAIL||'').toLowerCase()?'admin':'user'}:null;}
+function cleanText(value,max=180){return String(value||'').trim().slice(0,max);}
+function listingInput(body){const item={title:cleanText(body.title,100),type:cleanText(body.type,40),location:cleanText(body.location,160),price:Number(body.price),area:Number(body.area),beds:Number(body.beds)||0,baths:Number(body.baths)||0,mode:body.mode==='Cho thuê'?'Cho thuê':'Mua bán',description:cleanText(body.description,1500),phone:cleanText(body.phone,24),image:cleanText(body.image,100),images:[],project:cleanText(body.project,120),legal:cleanText(body.legal,80),floor:cleanText(body.floor,30),direction:cleanText(body.direction,50),handover:cleanText(body.handover,80),amenities:Array.isArray(body.amenities)?body.amenities.map(x=>cleanText(x,40)).slice(0,20):[],latitude:Number(body.latitude)||null,longitude:Number(body.longitude)||null,condition:cleanText(body.condition,80)};if(!item.title||!item.type||!item.location||!Number.isFinite(item.price)||item.price<=0||!Number.isFinite(item.area)||item.area<=0||!item.description||!/^([+0-9 ()-]){8,24}$/.test(item.phone))throw new Error('Vui lòng nhập đầy đủ thông tin hợp lệ.');return item;}
+function isAdmin(user){return !!user&&user.email===String(process.env.ADMIN_EMAIL||'').toLowerCase();}
+function saveListingImages(data){if(!Array.isArray(data))return [];if(data.length>5)throw new Error('Tải tối đa 5 ảnh cho mỗi tin.');let total=0;return data.map(source=>{const match=String(source).match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/);if(!match)throw new Error('Một ảnh có định dạng không hợp lệ.');const buffer=Buffer.from(match[2],'base64');if(buffer.length>1200000)throw new Error('Mỗi ảnh sau khi nén cần nhỏ hơn 1,2 MB.');total+=buffer.length;if(total>5500000)throw new Error('Tổng dung lượng ảnh vượt giới hạn.');const ext=match[1]==='jpeg'?'jpg':match[1];const name=`${crypto.randomUUID()}.${ext}`;fs.writeFileSync(path.join(uploadPath,name),buffer,{flag:'wx'});return `/uploads/${name}`;});}
+
+const server=http.createServer(async(req,res)=>{
+  const url=new URL(req.url,'http://localhost');
+  if(url.pathname.startsWith('/api/')){
+    try{
+      if(req.method==='GET'&&url.pathname==='/api/maps-config')return send(res,200,{browserKey:process.env.GOOGLE_MAPS_BROWSER_KEY||''});
+      const publicListingMatch=url.pathname.match(/^\/api\/listings\/([^/]+)$/);
+      if(req.method==='GET'&&publicListingMatch){const listing=db.listings.find(x=>String(x.id)===publicListingMatch[1]&&x.status==='Đang hiển thị');if(!listing)return send(res,404,{error:'Tin đăng không tồn tại hoặc chưa được duyệt.'});const owner=db.users.find(x=>x.id===listing.ownerId);return send(res,200,{listing:{...listing,ownerName:owner?.name||'',legal:listing.legal||'Sổ hồng riêng',project:listing.project||(listing.type==='Căn hộ'?'The Grove Residence':''),floor:listing.floor||'—',direction:listing.direction||'Liên hệ xác nhận',handover:listing.handover||'Liên hệ xác nhận'},user:safeUser(userFor(req))});}
+      if(req.method==='GET'&&url.pathname==='/api/listings'){
+        let items=db.listings.filter(x=>x.status==='Đang hiển thị');
+        const q=(url.searchParams.get('q')||'').toLocaleLowerCase('vi');const type=url.searchParams.get('type')||'';const scope=url.searchParams.get('scope')||'';const mode=url.searchParams.get('mode')||'';const price=url.searchParams.get('price')||'';const minPrice=Number(url.searchParams.get('minPrice'))||0;const maxPrice=Number(url.searchParams.get('maxPrice'))||Infinity;const beds=Number(url.searchParams.get('beds'))||0;const minArea=Number(url.searchParams.get('minArea'))||0;const legal=url.searchParams.get('legal')||'';
+        items=items.filter(x=>{const low=x.mode==='Cho thuê'?15:3;const high=x.mode==='Cho thuê'?30:6;const priceMatch=(!price||(price==='under-3'?x.price<low:price==='3-6'?x.price>=low&&x.price<=high:x.price>high))&&x.price>=minPrice&&x.price<=maxPrice;return (!q||`${x.title} ${x.location} ${x.type}`.toLocaleLowerCase('vi').includes(q))&&(!type||x.type===type)&&(!scope||(scope==='house'?['Nhà riêng','Biệt thự'].includes(x.type):true))&&(!mode||x.mode===mode)&&priceMatch&&(!beds||Number(x.beds)>=beds)&&(!minArea||Number(x.area)>=minArea)&&(!legal||String(x.legal||'').includes(legal));});
+        if(url.searchParams.get('sort')==='price')items.sort((a,b)=>a.price-b.price);else items.sort((a,b)=>b.createdAt-a.createdAt);const total=items.length;const limit=Math.min(24,Math.max(1,Number(url.searchParams.get('limit'))||8));const offset=Math.max(0,Number(url.searchParams.get('offset'))||0);const visible=items.slice(offset,offset+limit).map((x,i)=>({...x,legal:x.legal||'Sổ hồng riêng',project:x.project||(x.type==='Căn hộ'?['The Grove Residence','Riverside Living','An Phú Garden'][(offset+i)%3]:''),floor:x.floor||(x.type==='Căn hộ'?`${8+((offset+i)%18)}`:'—'),direction:x.direction||['Đông Nam','Tây Bắc','Đông'][(offset+i)%3],handover:x.handover||(x.type==='Căn hộ'?'Hoàn thiện cơ bản':'Có thể vào ở')}));return send(res,200,{listings:visible,total,offset,limit,user:safeUser(userFor(req)),favorites:userFor(req)?(db.favorites[userFor(req).id]||[]):[]});
+      }
+      if(req.method==='GET'&&url.pathname==='/api/me'){const user=userFor(req);return send(res,200,{user:safeUser(user),favorites:user?db.favorites[user.id]||[]:[]});}
+      if(req.method==='POST'&&url.pathname==='/api/register'){
+        const body=await readBody(req);const name=cleanText(body.name,80);const email=cleanText(body.email,160).toLowerCase();const phone=cleanText(body.phone,24);const password=String(body.password||'');
+        if(name.length<2||!/^\S+@\S+\.\S+$/.test(email)||password.length<8||!/^([+0-9 ()-]){8,24}$/.test(phone))return send(res,400,{error:'Nhập tên, email hợp lệ, số điện thoại và mật khẩu ít nhất 8 ký tự.'});
+        if(db.users.some(u=>u.email===email))return send(res,409,{error:'Email này đã được đăng ký.'});
+        const salt=crypto.randomBytes(16).toString('hex');const hash=crypto.scryptSync(password,salt,64).toString('hex');const user={id:crypto.randomUUID(),name,email,phone,salt,hash};db.users.push(user);db.favorites[user.id]=[];saveDb();const token=crypto.randomBytes(32).toString('hex');sessions.set(token,user);return send(res,201,{user:safeUser(user)},{'Set-Cookie':`an_cu_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`});
+      }
+      if(req.method==='POST'&&url.pathname==='/api/login'){
+        const body=await readBody(req);const email=cleanText(body.email,160).toLowerCase();const user=db.users.find(u=>u.email===email);
+        if(!user||crypto.scryptSync(String(body.password||''),user.salt,64).toString('hex')!==user.hash)return send(res,401,{error:'Email hoặc mật khẩu chưa chính xác.'});
+        const token=crypto.randomBytes(32).toString('hex');sessions.set(token,user);return send(res,200,{user:safeUser(user)},{'Set-Cookie':`an_cu_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`});
+      }
+      if(req.method==='POST'&&url.pathname==='/api/logout'){const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('an_cu_session='))?.split('=')[1];if(token)sessions.delete(token);return send(res,200,{ok:true},{'Set-Cookie':'an_cu_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0'});}
+      if(req.method==='GET'&&url.pathname==='/api/favorites'){const user=userFor(req);if(!user)return send(res,401,{error:'Đăng nhập để xem tin đã lưu.'});const ids=db.favorites[user.id]||[];return send(res,200,{listings:db.listings.filter(x=>ids.some(id=>String(id)===String(x.id)))});}
+      if(req.method==='POST'&&url.pathname==='/api/favorites'){
+        const user=userFor(req);if(!user)return send(res,401,{error:'Đăng nhập để lưu tin yêu thích.'});const {id}=await readBody(req);const listing=db.listings.find(x=>String(x.id)===String(id));if(!listing)return send(res,404,{error:'Không tìm thấy tin đăng.'});const list=db.favorites[user.id]||[];db.favorites[user.id]=list.some(x=>String(x)===String(id))?list.filter(x=>String(x)!==String(id)):[...list,listing.id];saveDb();return send(res,200,{favorites:db.favorites[user.id]});
+      }
+      if(req.method==='GET'&&url.pathname==='/api/my-listings'){const user=userFor(req);if(!user)return send(res,401,{error:'Đăng nhập để quản lý tin đăng.'});return send(res,200,{listings:db.listings.filter(x=>x.ownerId===user.id)});}
+      if(req.method==='GET'&&url.pathname==='/api/appointments'){const user=userFor(req);if(!user)return send(res,401,{error:'Đăng nhập để xem lịch hẹn.'});return send(res,200,{appointments:(db.appointments||[]).filter(x=>x.userId===user.id||x.ownerId===user.id).sort((a,b)=>a.when.localeCompare(b.when))});}
+      if(req.method==='POST'&&url.pathname==='/api/appointments'){const user=userFor(req);if(!user)return send(res,401,{error:'Đăng nhập để đặt lịch xem nhà.'});const body=await readBody(req);const listing=db.listings.find(x=>String(x.id)===String(body.listingId));const when=new Date(body.when);if(!listing)return send(res,404,{error:'Không tìm thấy tin đăng.'});if(!Number.isFinite(when.getTime())||when.getTime()<Date.now()+3600000)return send(res,400,{error:'Chọn lịch hẹn cách hiện tại ít nhất 1 giờ.'});const appointment={id:crypto.randomUUID(),listingId:listing.id,listingTitle:listing.title,userId:user.id,ownerId:listing.ownerId,guestName:user.name,when:when.toISOString(),note:cleanText(body.note,500),status:'Chờ xác nhận',createdAt:Date.now()};db.appointments.push(appointment);saveDb();return send(res,201,{appointment});}
+      const appointmentMatch=url.pathname.match(/^\/api\/appointments\/([^/]+)$/);
+      if(appointmentMatch&&req.method==='PATCH'){const user=userFor(req);if(!user)return send(res,401,{error:'Đăng nhập để cập nhật lịch hẹn.'});const body=await readBody(req);const appointment=(db.appointments||[]).find(x=>x.id===appointmentMatch[1]);if(!appointment)return send(res,404,{error:'Không tìm thấy lịch hẹn.'});if(body.status==='Đã xác nhận'&&appointment.ownerId===user.id)appointment.status=body.status;else if(body.status==='Đã hủy'&&appointment.userId===user.id)appointment.status=body.status;else return send(res,403,{error:'Bạn không có quyền cập nhật lịch hẹn này.'});saveDb();return send(res,200,{appointment});}
+      if(req.method==='POST'&&url.pathname==='/api/reports'){const user=userFor(req);if(!user)return send(res,401,{error:'Đăng nhập để báo tin.'});const body=await readBody(req);const listing=db.listings.find(x=>String(x.id)===String(body.listingId));if(!listing)return send(res,404,{error:'Không tìm thấy tin đăng.'});db.reports.push({id:crypto.randomUUID(),listingId:listing.id,title:listing.title,userId:user.id,reason:cleanText(body.reason,300),status:'Mới',createdAt:Date.now()});saveDb();return send(res,201,{ok:true});}
+      if(req.method==='GET'&&url.pathname==='/api/admin'){const user=userFor(req);if(!isAdmin(user))return send(res,403,{error:'Chỉ tài khoản quản trị được truy cập.'});return send(res,200,{listings:db.listings.filter(x=>x.status==='Chờ duyệt'),reports:(db.reports||[]).filter(x=>x.status==='Mới')});}
+      const moderation=url.pathname.match(/^\/api\/admin\/listings\/([^/]+)$/);
+      if(moderation&&req.method==='PATCH'){const user=userFor(req);if(!isAdmin(user))return send(res,403,{error:'Chỉ tài khoản quản trị được duyệt tin.'});const body=await readBody(req);const listing=db.listings.find(x=>String(x.id)===moderation[1]);if(!listing)return send(res,404,{error:'Không tìm thấy tin đăng.'});if(!['Đang hiển thị','Từ chối'].includes(body.status))return send(res,400,{error:'Trạng thái kiểm duyệt không hợp lệ.'});listing.status=body.status;saveDb();return send(res,200,{listing});}
+      const reportMatch=url.pathname.match(/^\/api\/admin\/reports\/([^/]+)$/);
+      if(reportMatch&&req.method==='PATCH'){const user=userFor(req);if(!isAdmin(user))return send(res,403,{error:'Chỉ tài khoản quản trị được xử lý báo cáo.'});const report=(db.reports||[]).find(x=>x.id===reportMatch[1]);if(!report)return send(res,404,{error:'Không tìm thấy báo cáo.'});report.status='Đã xem';saveDb();return send(res,200,{report});}
+      if(req.method==='GET'&&url.pathname==='/api/payments'){const user=userFor(req);if(!user)return send(res,401,{error:'Đăng nhập để xem giao dịch.'});return send(res,200,{payments:(db.payments||[]).filter(x=>x.userId===user.id).sort((a,b)=>b.createdAt-a.createdAt)});}
+      if(req.method==='POST'&&url.pathname==='/api/payments'){
+        const user=userFor(req);if(!user)return send(res,401,{error:'Đăng nhập để tạo yêu cầu thanh toán.'});const body=await readBody(req);const listing=db.listings.find(x=>String(x.id)===String(body.listingId));const amount=Number(body.amount);const methods=['Chuyển khoản mô phỏng','Thẻ ngân hàng mô phỏng','Ví điện tử mô phỏng'];if(!listing)return send(res,404,{error:'Không tìm thấy bất động sản.'});if(!Number.isFinite(amount)||amount<100000||amount>1000000000)return send(res,400,{error:'Số tiền đặt cọc phải từ 100.000 đến 1.000.000.000 đồng.'});if(!methods.includes(body.method))return send(res,400,{error:'Phương thức thanh toán không hợp lệ.'});const payment={id:crypto.randomUUID(),userId:user.id,listingId:listing.id,listingTitle:listing.title,amount:Math.round(amount),method:body.method,status:'Chờ thanh toán (demo)',createdAt:Date.now()};db.payments.push(payment);saveDb();return send(res,201,{payment});
+      }
+      const paymentMatch=url.pathname.match(/^\/api\/payments\/([^/]+)\/simulate$/);
+      if(paymentMatch&&req.method==='POST'){const user=userFor(req);if(!user)return send(res,401,{error:'Đăng nhập để xác nhận giao dịch.'});const payment=(db.payments||[]).find(x=>x.id===paymentMatch[1]&&x.userId===user.id);if(!payment)return send(res,404,{error:'Không tìm thấy giao dịch.'});if(payment.status!=='Đã thanh toán (mô phỏng)'){payment.status='Đã thanh toán (mô phỏng)';payment.paidAt=Date.now();saveDb();}return send(res,200,{payment});}
+      if(req.method==='POST'&&url.pathname==='/api/listings'){
+        const user=userFor(req);if(!user)return send(res,401,{error:'Đăng nhập để đăng tin.'});const body=await readBody(req);const item=listingInput(body);item.images=saveListingImages(body.images);item.id=crypto.randomUUID();item.ownerId=user.id;item.createdAt=Date.now();item.status=process.env.ADMIN_EMAIL?'Chờ duyệt':'Đang hiển thị';db.listings.unshift(item);saveDb();return send(res,201,{listing:item});
+      }
+      const match=url.pathname.match(/^\/api\/listings\/([^/]+)$/);
+      if(match&&req.method==='PATCH'){const user=userFor(req);if(!user)return send(res,401,{error:'Đăng nhập để sửa tin đăng.'});const listing=db.listings.find(x=>String(x.id)===match[1]);if(!listing)return send(res,404,{error:'Không tìm thấy tin đăng.'});if(listing.ownerId!==user.id&&!isAdmin(user))return send(res,403,{error:'Bạn không có quyền sửa tin này.'});const body=await readBody(req);const updated=listingInput(body);const uploaded=saveListingImages(body.images);Object.assign(listing,updated,{images:uploaded.length?uploaded:(listing.images||[]),status:process.env.ADMIN_EMAIL&&listing.ownerId===user.id?'Chờ duyệt':listing.status,updatedAt:Date.now()});saveDb();return send(res,200,{listing});}
+      if(match&&req.method==='DELETE'){const user=userFor(req);if(!user)return send(res,401,{error:'Đăng nhập để quản lý tin.'});const listing=db.listings.find(x=>String(x.id)===match[1]);if(!listing)return send(res,404,{error:'Không tìm thấy tin đăng.'});if(listing.ownerId!==user.id)return send(res,403,{error:'Bạn không có quyền xóa tin này.'});db.listings=db.listings.filter(x=>x!==listing);saveDb();return send(res,200,{ok:true});}
+      return send(res,404,{error:'Không tìm thấy API.'});
+    }catch(error){return send(res,400,{error:error.message||'Yêu cầu không hợp lệ.'});}
+  }
+  if(req.method==='GET'&&/^\/listing\/[^/]+$/.test(url.pathname)){
+    return fs.readFile(path.join(root,'index.html'),(error,content)=>{if(error){res.writeHead(500);return res.end('Lỗi máy chủ.');}res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(content);});
+  }
+  const pathname=decodeURIComponent(url.pathname);const requested=pathname==='/'?'index.html':pathname.replace(/^\/+/, '');const filePath=path.resolve(root,requested);
+  if(!filePath.startsWith(root+path.sep)&&filePath!==path.join(root,'index.html')){res.writeHead(403);return res.end('Forbidden');}
+  fs.readFile(filePath,(error,content)=>{if(error){res.writeHead(error.code==='ENOENT'?404:500,{'Content-Type':'text/plain; charset=utf-8'});return res.end(error.code==='ENOENT'?'Không tìm thấy trang.':'Lỗi máy chủ.');}res.writeHead(200,{'Content-Type':mimeTypes[path.extname(filePath)]||'application/octet-stream','Cache-Control':'no-store'});res.end(content);});
+});
+const port=Number(process.env.PORT)||3000;
+server.listen(port,'127.0.0.1',()=>console.log(`An Cư đang chạy tại http://127.0.0.1:${port}`));

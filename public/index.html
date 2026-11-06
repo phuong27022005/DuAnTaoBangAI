@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f6f2">
+  <meta name="description" content="Khám phá nhà đất, căn hộ và mặt bằng phù hợp với bạn.">
+  <title>An Cư — Tìm nơi thuộc về</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/maps.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;display=swap">
+  <link rel="stylesheet" href="/prestige.css">
+  <script src="/app.js" defer></script>
+  <script src="/maps.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#home" aria-label="An Cư - Trang chủ"><span class="brand-mark">a.</span><span>An Cư</span></a>
+    <nav class="main-nav" aria-label="Điều hướng chính">
+      <a class="active" href="#listings" data-category="all">Khám phá</a>
+      <a href="#buy-home" data-category="house">Mua nhà</a>
+      <a href="#apartments" data-category="apartment">Căn hộ</a>
+      <a href="#about">Về chúng tôi</a>
+    </nav>
+    <div class="header-actions"><button class="post-button" id="post-button">＋ Đăng tin</button><button class="my-listings-button" id="my-listings-button">Tin của tôi</button><button class="payments-button" id="payments-button" hidden>Giao dịch</button><button class="admin-button" id="admin-button" hidden>Kiểm duyệt</button><button class="auth-button" id="auth-button">Đăng nhập</button><button class="avatar" id="account-button" aria-label="Tài khoản" title="Tài khoản" hidden>L</button><button class="menu-button" aria-label="Mở menu" aria-expanded="false">☰</button></div>
+  </header>
+
+  <main id="home">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="eyebrow-dot"></span> BẤT ĐỘNG SẢN CAO CẤP</p>
+        <h1>Tìm ngôi nhà mơ ước<br><span>&amp; khẳng định vị thế của bạn</span></h1>
+        <p class="hero-description">Khám phá căn hộ, nhà phố và biệt thự. So sánh các lựa chọn và đặt lịch xem ngay trên An Cư.</p>
+      </div>
+      <div class="hero-art" role="img" aria-label="Ngôi nhà giữa khu vườn xanh"><div class="sun"></div><div class="hill hill-back"></div><div class="hill hill-front"></div><div class="house"><div class="roof"></div><div class="house-body"><div class="window window-one"></div><div class="window window-two"></div><div class="door"></div></div></div><div class="plant plant-one">✦</div><div class="plant plant-two">✦</div><span class="art-caption">Một nhịp sống dịu dàng</span></div>
+    </section>
+
+    <section class="category-landing" id="category-landing" hidden>
+      <div class="category-copy"><p class="eyebrow" id="category-eyebrow">CẨM NANG MUA NHÀ</p><h2 id="category-title"></h2><p id="category-description"></p><a href="#listings" id="category-cta" class="search-button">Xem tin phù hợp <span>↘</span></a></div>
+      <div class="category-guides" id="category-guides"></div>
+      <div class="loan-tool"><div><p class="eyebrow">LẬP KẾ HOẠCH TÀI CHÍNH</p><h3>Ước tính khoản vay mua nhà</h3><p>Tham khảo khoản trả hàng tháng theo hình thức trả góp đều. Kết quả chỉ mang tính ước tính.</p></div><form id="loan-form" class="loan-inputs"><label>Giá nhà (tỷ)<input id="loan-price" type="number" min="0.1" step="0.1" value="3.5"></label><label>Vốn tự có (%)<input id="loan-down" type="number" min="0" max="100" value="30"></label><label>Lãi suất năm (%)<input id="loan-rate" type="number" min="0" step="0.1" value="8.5"></label><label>Thời hạn (năm)<input id="loan-years" type="number" min="1" max="40" value="20"></label><div class="loan-result"><small>Khoản trả ước tính mỗi tháng</small><strong id="loan-monthly">—</strong><span id="loan-principal"></span></div></form></div>
+    </section>
+
+    <section class="property-page" id="property-page" hidden><a href="#listings" class="detail-back" id="detail-back">← Trở lại danh sách</a><div id="property-page-content"></div></section>
+
+    <section class="search-panel" aria-label="Tìm bất động sản">
+      <div class="search-tabs"><button class="search-tab active" data-mode="Mua bán">Mua bán</button><button class="search-tab" data-mode="Cho thuê">Cho thuê</button></div>
+      <form id="search-form" class="search-form">
+        <label class="search-field location-field"><span class="field-icon">⌕</span><span class="field-content"><span class="field-label">Khu vực</span><input id="location" type="search" placeholder="Thành phố, quận hoặc khu vực"></span></label>
+        <label class="search-field"><span class="field-icon">⌂</span><span class="field-content"><span class="field-label">Loại bất động sản</span><select id="type"><option value="">Tất cả loại hình</option><option>Nhà riêng</option><option>Căn hộ</option><option>Biệt thự</option><option>Đất nền</option></select></span><span class="chevron">⌄</span></label>
+        <label class="search-field price-field"><span class="field-icon">₫</span><span class="field-content"><span class="field-label">Khoảng giá</span><select id="price"><option value="">Mọi mức giá</option><option value="under-3">Dưới 3 tỷ</option><option value="3-6">3 – 6 tỷ</option><option value="over-6">Trên 6 tỷ</option></select></span><span class="chevron">⌄</span></label>
+        <button class="search-button" type="submit"><span>⌕</span> Tìm kiếm</button>
+      </form>
+    </section>
+
+    <section class="prestige-categories" aria-labelledby="category-segments">
+      <p class="eyebrow">KHÁM PHÁ THEO DANH MỤC</p>
+      <h2 id="category-segments">Phân khúc bất động sản</h2>
+      <div class="segment-grid">
+        <button type="button" data-segment="Căn hộ"><span>01</span>Căn hộ <b aria-hidden="true">↗</b></button>
+        <button type="button" data-segment="Nhà riêng"><span>02</span>Nhà phố <b aria-hidden="true">↗</b></button>
+        <button type="button" data-segment="Biệt thự"><span>03</span>Biệt thự <b aria-hidden="true">↗</b></button>
+        <button type="button" data-segment="Đất nền"><span>04</span>Đất nền <b aria-hidden="true">↗</b></button>
+      </div>
+    </section>
+    <section class="listings" id="listings">
+      <div class="section-heading"><div><p class="eyebrow" id="results-eyebrow">DÀNH RIÊNG CHO BẠN</p><h2 id="results-title">Những nơi đáng để trở về</h2><p class="section-subtitle" id="results-subtitle">Bất động sản nổi bật được tuyển chọn hôm nay.</p></div><a class="view-all" href="#listings">Xem tất cả <span>↗</span></a></div>
+      <div class="listing-toolbar"><div class="filter-chips"><button class="chip active" data-filter="">Tất cả</button><button class="chip" data-filter="Căn hộ">Căn hộ</button><button class="chip" data-filter="Nhà riêng">Nhà riêng</button><button class="chip" data-filter="Biệt thự">Biệt thự</button><button class="chip" data-filter="Đất nền">Đất nền</button></div><div class="listing-tools"><div class="detail-filters" id="detail-filters"><input id="min-price" aria-label="Giá thấp nhất" type="number" min="0" placeholder="Giá từ (tỷ)"><input id="max-price" aria-label="Giá cao nhất" type="number" min="0" placeholder="Giá đến (tỷ)"><select id="bedrooms-filter" aria-label="Số phòng ngủ"><option value="0">Số phòng ngủ</option><option value="1">1+ phòng ngủ</option><option value="2">2+ phòng ngủ</option><option value="3">3+ phòng ngủ</option></select><select id="area-filter" aria-label="Diện tích tối thiểu"><option value="0">Mọi diện tích</option><option value="60">Từ 60 m²</option><option value="80">Từ 80 m²</option><option value="100">Từ 100 m²</option></select><select id="legal-filter" aria-label="Pháp lý"><option value="">Mọi pháp lý</option><option value="Sổ hồng">Sổ hồng</option><option value="Sổ đỏ">Sổ đỏ</option><option value="Hợp đồng">Hợp đồng</option></select></div><button class="sort-button" id="sort-button">Mới nhất <span>⌄</span></button></div></div>
+      <div class="listing-grid" id="listing-grid" aria-live="polite"></div>
+      <div class="empty-state" id="empty-state" hidden><div>⌕</div><h3>Chưa tìm thấy bất động sản phù hợp</h3><p>Thử thay đổi khu vực hoặc bộ lọc của bạn nhé.</p><button id="reset-search">Xóa bộ lọc</button></div>
+      <div class="pagination" id="pagination"><button id="page-previous">← Trang trước</button><span id="page-indicator">Trang 1</span><button id="page-next">Trang tiếp →</button></div>
+    </section>
+
+    <div class="compare-bar" id="compare-bar" hidden><span id="compare-count">Đã chọn 0/3 tin</span><button id="compare-open" class="compare-open">So sánh ngay</button><button id="compare-clear" class="compare-clear">Xóa lựa chọn</button></div>
+
+    <section class="about" id="about"><div class="about-icon">a.</div><div><p class="eyebrow">AN CƯ, AN TÂM</p><h2>Hành trình tìm nhà<br>nên thật nhẹ nhàng.</h2></div><p>Chúng tôi kết nối bạn với những không gian sống phù hợp, thông tin minh bạch và cảm hứng cho khởi đầu mới.</p><a href="#listings" class="about-link">Bắt đầu khám phá <span>↗</span></a></section>
+  </main>
+  <footer><a class="brand" href="#home"><span class="brand-mark">a.</span><span>An Cư</span></a><p>© 2025 An Cư. Một nơi để trở về.</p><div><a href="#about">Về chúng tôi</a><a href="#home">Liên hệ</a></div></footer>
+  <div class="modal-backdrop" id="modal-backdrop" hidden><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button class="modal-close" id="modal-close" aria-label="Đóng">×</button><div id="modal-content"></div></section></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

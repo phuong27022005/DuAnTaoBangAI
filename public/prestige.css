@@ -1,0 +1,51 @@
+:root {
+  --green: #0b2545;
+  --green-dark: #001026;
+  --line: #e0e3e6;
+  --gold: #fed255;
+}
+body { background: #f7f9fc; color: #191c1e; font-family: 'Be Vietnam Pro', sans-serif; }
+.topbar { position: sticky; top: 0; z-index: 8; background: #f7f9fcf5; backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
+.brand, .card-title, .property-main h1, .section-heading h2, .hero h1 { font-family: inherit; }
+.brand-mark, .post-button, .search-form .search-button { background: var(--gold); color: #241a00; border-color: var(--gold); }
+.hero {
+  display: grid; grid-template-columns: 1fr; place-items: center; max-width: none;
+  margin: 0; padding: clamp(65px, 10vw, 135px) 20px 108px; text-align: center;
+  background: linear-gradient(180deg, #001026e8, #0b2545b8 65%, #f7f9fc), url('https://lh3.googleusercontent.com/aida-public/AB6AXuB7572bAYpCGkfdojlZfVIcHL5hbjS4BFRCizlH9eFWlRxHHOanBPsrZxFONuq05pdI9FnNLAEnEfrJSt_jyrlXVTm0arWnivoX3KAqw2aiBp0NNcIFouDOC_ld_ncQMQ13Vh-UQEjUoFmgl7xHEwYZNA4PhMlX9GIAo0sZ9ZqOIeogWIKtsFgXqoHqG5s-8h-J8PAuAGgXV2GVwo0kIxJvkl--Gd0YpYn5kmWbQGBg') center/cover, #001026;
+}
+.hero-art { display: none; }
+.hero h1 { color: white; font-size: clamp(30px, 5vw, 54px); letter-spacing: -.045em; }
+.hero h1 span { color: #ffe08e; font-style: normal; }
+.hero .eyebrow { display: inline-block; border: 1px solid #ffe08e66; border-radius: 30px; padding: 8px 14px; color: #ffe08e; }
+.hero-description { margin-inline: auto; color: #fff; max-width: 610px; }
+.search-panel { position: relative; margin-top: -65px; z-index: 2; box-shadow: 0 12px 35px #00102620; }
+.category-landing:not([hidden]) { position: relative; margin-top: -60px; }
+.category-landing:not([hidden]) ~ .search-panel { margin-top: 24px; }
+.prestige-categories { max-width: 1180px; margin: 55px auto; }
+.prestige-categories h2 { margin: 0 0 20px; color: var(--green-dark); font-size: clamp(22px, 3vw, 32px); }
+.segment-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.segment-grid button { display: flex; align-items: center; gap: 12px; padding: 18px; background: white; color: var(--green); border: 1px solid var(--line); border-radius: 10px; text-align: left; cursor: pointer; font-weight: 700; }
+.segment-grid button span { padding: 8px; background: #fff3cb; border-radius: 5px; font-size: 11px; }
+.segment-grid button b { margin-left: auto; }
+.segment-grid button:hover { border-color: #a5862a; }
+.listings { scroll-margin-top: 92px; margin-top: 46px; }
+.property-card .card-price { color: #755b00; }
+.property-page { scroll-margin-top: 90px; }
+.property-contact { top: 94px; }
+.property-contact .appointment-start { background: var(--gold); color: #241a00; }
+.property-main .detail-gallery { overflow: auto; grid-auto-rows: 150px; }
+.property-main .detail-gallery:has(img:only-child) { grid-template-columns: 1fr; grid-template-rows: clamp(220px, 36vw, 420px); }
+.property-main .detail-gallery img:only-child { grid-column: 1; grid-row: 1; }
+.show-property-page .prestige-categories { display: none; }
+@media (min-width: 1050px) {
+  .listings { display: grid; grid-template-columns: 225px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .listings > .section-heading { grid-column: 1 / -1; }
+  .listings > .listing-toolbar { grid-column: 1; grid-row: 2 / span 3; display: flex; flex-direction: column; align-items: stretch; gap: 16px; margin: 0; padding: 16px; background: white; border: 1px solid var(--line); border-radius: 12px; position: sticky; top: 95px; }
+  .listing-toolbar::before { content: 'Bộ lọc sâu'; font-weight: 700; color: var(--green-dark); }
+  .listing-toolbar .filter-chips, .listing-toolbar .detail-filters { flex-wrap: wrap; justify-content: flex-start; }
+  .listing-toolbar .listing-tools { display: grid; }
+  .listings > :is(.listing-grid, .empty-state, .pagination) { grid-column: 2; }
+  .listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 1250px) { .prestige-categories { margin-inline: 5.5vw; } }
+@media (max-width: 650px) { .segment-grid { grid-template-columns: repeat(2, 1fr); } .segment-grid button { padding: 10px; gap: 6px; font-size: 12px; } }

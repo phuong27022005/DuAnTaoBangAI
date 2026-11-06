@@ -1,0 +1,9 @@
+{
+  "name": "bat-dong-san-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Website bất động sản mẫu dùng Node.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
